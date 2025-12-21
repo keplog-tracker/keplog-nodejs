@@ -1,0 +1,62 @@
+{
+  "name": "@keplog/node",
+  "version": "1.0.0",
+  "description": "Official Keplog SDK for Node.js error tracking",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "test:examples": "node examples/basic.js",
+    "lint": "tsc --noEmit",
+    "clean": "rm -rf dist coverage"
+  },
+  "keywords": [
+    "keplog",
+    "error-tracking",
+    "monitoring",
+    "logging",
+    "node.js",
+    "typescript",
+    "observability",
+    "error-reporting"
+  ],
+  "author": "Keplog",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/keplog/keplog.git",
+    "directory": "examples/sdk/nodejs"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.11",
+    "@types/node": "^20.10.0",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.1.1",
+    "tsup": "^8.0.1",
+    "typescript": "^5.3.3"
+  },
+  "dependencies": {
+    "express": "^5.2.1",
+    "expressjs": "^1.0.1"
+  }
+}
