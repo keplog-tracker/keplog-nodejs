@@ -45,7 +45,9 @@ export interface EnhancedStackFrame {
   file: string;
   line: number;
   column?: number;
-  function?: string | null;
+  function: string | null;
+  class: string | null;
+  type: string | null;
   code_snippet?: Record<number, string>;
   is_vendor: boolean;
   is_application: boolean;
@@ -143,6 +145,60 @@ function isVendorFrame(file: string | null | undefined): boolean {
 }
 
 /**
+ * Parse class and method information from JavaScript function name
+ * Handles various formats:
+ * - "ClassName.methodName" -> class: ClassName, function: methodName, type: "->"
+ * - "ClassName.staticMethod" -> class: ClassName, function: staticMethod, type: "::"
+ * - "functionName" -> class: null, function: functionName, type: null
+ * - "new ClassName" -> class: ClassName, function: "{constructor}", type: "->"
+ *
+ * @param functionName Raw function name from stack trace
+ * @returns Parsed class, function, and type information
+ */
+function parseClassAndMethod(functionName: string | undefined): {
+  class: string | null;
+  function: string | null;
+  type: string | null;
+} {
+  if (!functionName) {
+    return { class: null, function: null, type: null };
+  }
+
+  // Handle constructor calls: "new ClassName"
+  const constructorMatch = functionName.match(/^new\s+(\w+)$/);
+  if (constructorMatch) {
+    return {
+      class: constructorMatch[1],
+      function: '{constructor}',
+      type: '->',
+    };
+  }
+
+  // Handle class methods: "ClassName.methodName" or "Object.method"
+  const classMethodMatch = functionName.match(/^(.+?)\.([^.]+)$/);
+  if (classMethodMatch) {
+    const [, className, methodName] = classMethodMatch;
+
+    // Determine if it's a static method or instance method
+    // In JavaScript, we can't reliably detect this from stack traces alone
+    // We'll default to instance method (->), but this could be enhanced
+    // with additional context or naming conventions
+    return {
+      class: className,
+      function: methodName,
+      type: '->',
+    };
+  }
+
+  // Regular function or anonymous function
+  return {
+    class: null,
+    function: functionName || '{closure}',
+    type: null,
+  };
+}
+
+/**
  * Parse Error object into enhanced stack frames with code snippets
  * @param error Error object
  * @param contextLines Number of lines to include before and after (default: 3)
@@ -160,11 +216,16 @@ export function parseEnhancedFrames(
   const basicFrames = parseStackFrames(error.stack);
 
   for (const frame of basicFrames) {
+    // Parse class and method information
+    const { class: className, function: functionName, type } = parseClassAndMethod(frame.function);
+
     const enhancedFrame: EnhancedStackFrame = {
       file: frame.file,
       line: frame.line ?? 0,
       column: frame.column,
-      function: frame.function ?? null,
+      function: functionName,
+      class: className,
+      type: type,
       is_vendor: isVendorFrame(frame.file),
       is_application: !isVendorFrame(frame.file),
     };

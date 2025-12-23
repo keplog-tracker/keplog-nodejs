@@ -27,5 +27,6 @@ export { ErrorSerializer } from './serializer';
 export { NodeIntegration } from './integrations/node';
 
 // Export utilities
-export { extractStackTrace, parseStackFrames } from './utils/stack-trace';
+export { extractStackTrace, parseStackFrames, parseEnhancedFrames } from './utils/stack-trace';
+export type { StackFrame, EnhancedStackFrame } from './utils/stack-trace';
 export { detectEnvironment, detectServerName, detectRelease } from './utils/environment';
