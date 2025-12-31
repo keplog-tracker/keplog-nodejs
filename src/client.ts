@@ -12,7 +12,7 @@ import { detectEnvironment, detectServerName } from './utils/environment';
  * @example
  * ```typescript
  * const keplog = new KeplogClient({
- *   apiKey: 'kep_your-api-key',
+ *   ingestKey: 'kep_ingest_your-ingest-key',
  *   environment: 'production'
  * });
  *
@@ -31,15 +31,19 @@ export class KeplogClient {
   private enabled: boolean;
   private nodeIntegration?: NodeIntegration;
 
+  // ⚠️ Recursion guard to prevent infinite loops
+  // If SDK throws error while capturing error, don't capture it again
+  private isCapturing: boolean = false;
+
   constructor(config: KeplogConfig) {
     // Validate required config
-    if (!config.apiKey) {
-      throw new Error('Keplog API key is required');
+    if (!config.ingestKey) {
+      throw new Error('Keplog Ingest Key is required');
     }
 
     // Set config with defaults
     this.config = {
-      apiKey: config.apiKey,
+      ingestKey: config.ingestKey,
       baseUrl: config.baseUrl || 'http://localhost:8080',
       environment: config.environment || detectEnvironment(),
       release: config.release || undefined as any,
@@ -47,7 +51,7 @@ export class KeplogClient {
       maxBreadcrumbs: config.maxBreadcrumbs || 100,
       enabled: config.enabled !== undefined ? config.enabled : true,
       debug: config.debug || false,
-      timeout: config.timeout || 5000,
+      timeout: Math.min(config.timeout || 5000, 10000), // Max 10 seconds
       beforeSend: config.beforeSend || undefined as any,
       autoHandleUncaught: config.autoHandleUncaught !== undefined ? config.autoHandleUncaught : true,
       exitOnUncaught: config.exitOnUncaught !== undefined ? config.exitOnUncaught : true,
@@ -60,7 +64,7 @@ export class KeplogClient {
     this.scope = new Scope();
     this.transport = new Transport({
       baseUrl: this.config.baseUrl,
-      apiKey: this.config.apiKey,
+      ingestKey: this.config.ingestKey,
       timeout: this.config.timeout,
       debug: this.config.debug,
     });
@@ -101,6 +105,17 @@ export class KeplogClient {
       return null;
     }
 
+    // ⚠️ RECURSION GUARD: Prevent infinite loop
+    // If SDK is already capturing an error, don't capture again
+    if (this.isCapturing) {
+      if (this.config.debug) {
+        console.log('[Keplog] Recursion detected: SDK error will not be captured to prevent infinite loop');
+      }
+      return null;
+    }
+
+    this.isCapturing = true;
+
     try {
       // Serialize the error
       const event = ErrorSerializer.serialize(
@@ -116,22 +131,32 @@ export class KeplogClient {
 
       // Apply beforeSend hook if provided
       if (this.config.beforeSend) {
-        const modifiedEvent = this.config.beforeSend(event);
-        if (!modifiedEvent) {
-          if (this.config.debug) {
-            console.log('[Keplog] Event dropped by beforeSend hook');
+        try {
+          const modifiedEvent = this.config.beforeSend(event);
+          if (!modifiedEvent) {
+            if (this.config.debug) {
+              console.log('[Keplog] Event dropped by beforeSend hook');
+            }
+            return null;
           }
+          return await this.transport.send(modifiedEvent);
+        } catch (err) {
+          // beforeSend callback threw error - log but don't capture
+          console.error('[Keplog] beforeSend callback threw error:', err);
           return null;
         }
-        return await this.transport.send(modifiedEvent);
       }
 
       return await this.transport.send(event);
     } catch (err) {
+      // SDK internal error - log but don't try to capture
       if (this.config.debug) {
         console.error('[Keplog] Failed to capture error:', err);
       }
       return null;
+    } finally {
+      // Always reset guard
+      this.isCapturing = false;
     }
   }
 

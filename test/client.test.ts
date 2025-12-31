@@ -16,7 +16,7 @@ describe('KeplogClient', () => {
     } as Response);
 
     client = new KeplogClient({
-      apiKey: 'test-api-key',
+      ingestKey: 'kep_ingest_test-ingest-key',
       autoHandleUncaught: false, // Disable for tests
       debug: false,
     });
@@ -27,15 +27,15 @@ describe('KeplogClient', () => {
   });
 
   describe('constructor', () => {
-    it('should throw error if API key is missing', () => {
+    it('should throw error if Ingest Key is missing', () => {
       expect(() => {
-        new KeplogClient({ apiKey: '' });
-      }).toThrow('API key is required');
+        new KeplogClient({ ingestKey: '' });
+      }).toThrow('Ingest Key is required');
     });
 
     it('should initialize with default values', () => {
       const testClient = new KeplogClient({
-        apiKey: 'test-key',
+        ingestKey: 'kep_ingest_test-key',
         autoHandleUncaught: false,
       });
 
@@ -46,7 +46,7 @@ describe('KeplogClient', () => {
 
     it('should use provided configuration', () => {
       const testClient = new KeplogClient({
-        apiKey: 'test-key',
+        ingestKey: 'kep_ingest_test-key',
         environment: 'staging',
         release: 'v2.0.0',
         enabled: false,
@@ -108,7 +108,7 @@ describe('KeplogClient', () => {
       });
 
       const testClient = new KeplogClient({
-        apiKey: 'test-key',
+        ingestKey: 'kep_ingest_test-key',
         beforeSend,
         autoHandleUncaught: false,
       });
@@ -127,7 +127,7 @@ describe('KeplogClient', () => {
 
     it('should not send if beforeSend returns null', async () => {
       const testClient = new KeplogClient({
-        apiKey: 'test-key',
+        ingestKey: 'kep_ingest_test-key',
         beforeSend: () => null,
         autoHandleUncaught: false,
       });
@@ -344,7 +344,7 @@ describe('KeplogClient', () => {
     it('should work end-to-end', async () => {
       // Set up client with all features
       const testClient = new KeplogClient({
-        apiKey: 'test-key',
+        ingestKey: 'kep_ingest_test-key',
         environment: 'production',
         release: 'v1.0.0',
         serverName: 'server-01',
@@ -387,6 +387,156 @@ describe('KeplogClient', () => {
       expect(body.extra_context.orderId).toBe('ORD-123');
       expect(body.context.breadcrumbs).toHaveLength(1);
 
+      testClient.close();
+    });
+  });
+
+  describe('infinite loop protection', () => {
+    it('should handle beforeSend throwing error', async () => {
+      const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
+
+      const testClient = new KeplogClient({
+        ingestKey: 'kep_ingest_test-key',
+        autoHandleUncaught: false,
+        beforeSend: () => {
+          throw new Error('beforeSend error');
+        },
+      });
+
+      // Should not throw, should return null
+      const eventId = await testClient.captureError(new Error('Test error'));
+
+      expect(eventId).toBeNull();
+      expect(mockFetch).not.toHaveBeenCalled();
+      expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringContaining('[Keplog] beforeSend callback threw error:'),
+        expect.any(Error)
+      );
+
+      consoleSpy.mockRestore();
+      testClient.close();
+    });
+
+    it('should prevent recursion when SDK throws during capture', async () => {
+      let captureAttempts = 0;
+
+      const testClient = new KeplogClient({
+        ingestKey: 'kep_ingest_test-key',
+        autoHandleUncaught: false,
+        debug: true,
+        beforeSend: (event) => {
+          captureAttempts++;
+          if (captureAttempts === 1) {
+            // First call - throw error to simulate SDK bug
+            throw new Error('SDK bug during serialization');
+          }
+          return event;
+        },
+      });
+
+      // First capture should fail gracefully
+      const eventId = await testClient.captureError(new Error('User error'));
+
+      // Should return null due to beforeSend throwing
+      expect(eventId).toBeNull();
+
+      // Should only try once, not infinite loop
+      expect(captureAttempts).toBe(1);
+
+      testClient.close();
+    });
+
+    it('should reset isCapturing flag even when error occurs', async () => {
+      const testClient = new KeplogClient({
+        ingestKey: 'kep_ingest_test-key',
+        autoHandleUncaught: false,
+        beforeSend: () => {
+          throw new Error('Error during send');
+        },
+      });
+
+      // First capture - should fail and reset flag
+      const eventId1 = await testClient.captureError(new Error('Error 1'));
+      expect(eventId1).toBeNull();
+
+      // Second capture on same client - should also fail gracefully (not hang)
+      // This proves the flag is properly reset in finally block
+      const eventId2 = await testClient.captureError(new Error('Error 2'));
+      expect(eventId2).toBeNull();
+
+      testClient.close();
+    });
+
+    it('should not capture errors while already capturing (recursion guard)', async () => {
+      let callCount = 0;
+      let testClient: KeplogClient;
+
+      testClient = new KeplogClient({
+        ingestKey: 'kep_ingest_test-key',
+        autoHandleUncaught: false,
+        debug: true,
+        beforeSend: (event) => {
+          callCount++;
+          // Simulate recursive capture attempt
+          if (callCount === 1) {
+            // Try to capture another error while processing this one
+            // This would cause infinite loop without protection
+            testClient.captureError(new Error('Recursive error'));
+          }
+          return event;
+        },
+      });
+
+      await testClient.captureError(new Error('Original error'));
+
+      // BeforeSend should be called only once for the original error
+      // The recursive call should be blocked by isCapturing guard
+      expect(callCount).toBe(1);
+
+      testClient.close();
+    });
+
+    it('should handle multiple rapid errors without recursion', async () => {
+      const testClient = new KeplogClient({
+        ingestKey: 'kep_ingest_test-key',
+        autoHandleUncaught: false,
+        debug: false,
+      });
+
+      // Capture multiple errors sequentially (not in parallel)
+      // to avoid recursion guard blocking parallel calls
+      await testClient.captureError(new Error('Error 1'));
+      await testClient.captureError(new Error('Error 2'));
+      await testClient.captureError(new Error('Error 3'));
+
+      // Should have attempted to send all 3
+      expect(mockFetch).toHaveBeenCalledTimes(3);
+
+      testClient.close();
+    });
+
+    it('should handle SDK internal errors gracefully', async () => {
+      const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
+
+      const testClient = new KeplogClient({
+        ingestKey: 'kep_ingest_test-key',
+        autoHandleUncaught: false,
+        debug: true,
+      });
+
+      // Mock fetch to throw error (simulate network failure during send)
+      mockFetch.mockRejectedValueOnce(new Error('Network error'));
+
+      // Should not throw, should return null
+      const eventId = await testClient.captureError(new Error('Test error'));
+
+      expect(eventId).toBeNull();
+      expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringContaining('[Keplog] Failed to send event:'),
+        expect.any(Error)
+      );
+
+      consoleSpy.mockRestore();
       testClient.close();
     });
   });

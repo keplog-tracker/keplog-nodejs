@@ -12,7 +12,7 @@ const { KeplogClient } = require('../dist/index.js');
 
 // Initialize the Keplog client
 const keplog = new KeplogClient({
-  apiKey: 'kep_3968962e-e50a-42ae-9cc0-21eb48c2b874',
+  ingestKey: 'kep_ingest_your-ingest-key',
   environment: 'development',
   release: 'v1.0.0',
   debug: true, // Enable debug logging

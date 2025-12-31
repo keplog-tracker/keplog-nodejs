@@ -15,6 +15,9 @@ export class Transport {
    * Send an error event to the Keplog API
    * @param event Error event to send
    * @returns Event ID if successful, null if failed
+   *
+   * This method fails silently to prevent SDK errors from affecting your app.
+   * Network errors, timeouts, and server issues are logged but don't throw.
    */
   async send(event: ErrorEvent): Promise<string | null> {
     try {
@@ -26,7 +29,7 @@ export class Transport {
       const payload = JSON.stringify(event);
 
       if (this.config.debug) {
-        console.log('[Keplog] Sending event:', event);
+        console.log(`[Keplog] Sending event (timeout: ${this.config.timeout}ms):`, event);
       }
 
       // Make HTTP request
@@ -34,7 +37,7 @@ export class Transport {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-API-Key': this.config.apiKey,
+          'X-Ingest-Key': this.config.ingestKey,
         },
         body: payload,
         timeout: this.config.timeout,
@@ -49,7 +52,7 @@ export class Transport {
         // Generate a simple event ID for tracking
         return `evt_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       } else if (response.status === 401) {
-        console.error('[Keplog] Invalid API key - please check your configuration');
+        console.error('[Keplog] Invalid Ingest Key - please check your configuration');
         return null;
       } else if (response.status === 400) {
         const errorData = await response.json() as ErrorResponse;
@@ -60,7 +63,19 @@ export class Transport {
         return null;
       }
     } catch (error) {
-      // Silent failure - SDK errors should never crash the app
+      // Handle timeout errors specifically
+      if (error instanceof Error && error.name === 'AbortError') {
+        console.error(
+          `[Keplog] Timeout: Request to Keplog API exceeded ${this.config.timeout}ms. ` +
+          'Check your network connection and server status.'
+        );
+        if (this.config.debug) {
+          console.error('[Keplog] Timeout details:', error);
+        }
+        return null;
+      }
+
+      // Silent failure for other errors - SDK errors should never crash the app
       if (this.config.debug) {
         console.error('[Keplog] Failed to send event:', error);
       }

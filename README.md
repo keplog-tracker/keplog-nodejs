@@ -8,7 +8,8 @@ Official Keplog SDK for Node.js error tracking and monitoring.
 ## Features
 
 - ✨ **Automatic Error Capture** - Catches uncaught exceptions and unhandled promise rejections
-- 🔍 **Enhanced Stack Frames** - Code snippets with vendor/app classification (v2.0)
+- 🐛 **Comprehensive Error Support** - All JS error types: Error, TypeError, ReferenceError, RangeError, SyntaxError, custom errors, and more
+- 🔍 **Enhanced Stack Frames** - Code snippets with class/method detection and vendor/app classification
 - 🗂️ **Context Separation** - Automatic separation of system vs user-defined context (v2.0)
 - 🔒 **Reserved Key Protection** - Prevents accidental override of SDK-managed fields (v2.0)
 - 🍞 **Breadcrumb Tracking** - Track user actions leading up to errors
@@ -37,7 +38,7 @@ const { KeplogClient } = require('@keplog/node');
 
 // Initialize the client
 const keplog = new KeplogClient({
-  apiKey: 'your-project-api-key',
+  ingestKey: 'kep_ingest_your-ingest-key',
   environment: 'production',
   release: 'v1.0.0'
 });
@@ -61,7 +62,7 @@ keplog.captureMessage('Payment processed successfully', 'info');
 
 ```javascript
 const keplog = new KeplogClient({
-  apiKey: 'kep_your-api-key',     // Required: Your project API key
+  ingestKey: 'kep_ingest_your-ingest-key',     // Required: Your project Ingest Key
   environment: 'production',       // Optional: defaults to NODE_ENV
   release: 'v1.0.0',              // Optional: your app version
   serverName: 'api-server-01',    // Optional: defaults to hostname
@@ -73,7 +74,7 @@ const keplog = new KeplogClient({
 ```javascript
 const keplog = new KeplogClient({
   // Required
-  apiKey: 'kep_your-api-key',
+  ingestKey: 'kep_ingest_your-ingest-key',
 
   // Optional
   baseUrl: 'https://api.keplog.com',  // API base URL
@@ -366,7 +367,7 @@ console.log(reservedKeys);
 const { KeplogClient } = require('@keplog/node');
 
 const keplog = new KeplogClient({
-  apiKey: 'kep_your-api-key',
+  ingestKey: 'kep_ingest_your-ingest-key',
   environment: 'production'
 });
 
@@ -388,7 +389,7 @@ const express = require('express');
 const { KeplogClient } = require('@keplog/node');
 
 const app = express();
-const keplog = new KeplogClient({ apiKey: 'kep_your-api-key' });
+const keplog = new KeplogClient({ ingestKey: 'kep_ingest_your-ingest-key' });
 
 // Add breadcrumb for each request
 app.use((req, res, next) => {
@@ -425,7 +426,7 @@ app.listen(3000);
 ### Breadcrumb Tracking
 
 ```javascript
-const keplog = new KeplogClient({ apiKey: 'kep_your-api-key' });
+const keplog = new KeplogClient({ ingestKey: 'kep_ingest_your-ingest-key' });
 
 // Track user journey
 keplog.addBreadcrumb({
@@ -456,7 +457,7 @@ try {
 ### Global Context
 
 ```javascript
-const keplog = new KeplogClient({ apiKey: 'kep_your-api-key' });
+const keplog = new KeplogClient({ ingestKey: 'kep_ingest_your-ingest-key' });
 
 // Set global tags
 keplog.setTags({
@@ -531,7 +532,7 @@ The SDK is written in TypeScript and includes full type definitions.
 import { KeplogClient, type KeplogConfig, type Breadcrumb } from '@keplog/node';
 
 const config: KeplogConfig = {
-  apiKey: 'kep_your-api-key',
+  ingestKey: 'kep_ingest_your-ingest-key',
   environment: 'production',
   release: 'v1.0.0'
 };
@@ -560,7 +561,7 @@ The SDK automatically handles field size constraints:
 The SDK respects these environment variables:
 
 - `NODE_ENV` - Auto-detected as the environment if not explicitly configured
-- API key should be configured programmatically, not via environment variables
+- Ingest Key should be configured programmatically, not via environment variables
 
 ## Best Practices
 
@@ -572,17 +573,30 @@ The SDK respects these environment variables:
 
 4. **Use Tags for Filtering**: Add tags for service names, regions, versions to filter errors in the dashboard.
 
-5. **Test API Key**: Always test your API key in development to ensure events are being sent.
+5. **Test Ingest Key**: Always test your Ingest Key in development to ensure events are being sent.
 
 6. **beforeSend Hook**: Use the `beforeSend` hook to filter sensitive data or ignore certain errors.
 
 7. **Environment-Specific Config**: Disable tracking in test environments:
    ```javascript
    const keplog = new KeplogClient({
-     apiKey: 'kep_your-api-key',
+     ingestKey: 'kep_ingest_your-ingest-key',
      enabled: process.env.NODE_ENV !== 'test'
    });
    ```
+
+## Documentation
+
+Comprehensive guides are available in the `docs/` directory:
+
+- **[ERROR_CAPTURE.md](docs/ERROR_CAPTURE.md)** - Complete guide to error capture capabilities
+  - What errors can/cannot be captured
+  - Configuration for maximum coverage
+  - Best practices and debugging
+- **[ERROR_FORMATTING.md](docs/ERROR_FORMATTING.md)** - Error formatting and stack trace details
+  - Enhanced stack frames with code snippets
+  - Class and method detection
+  - Alternative approaches (Youch integration)
 
 ## Examples
 
@@ -591,12 +605,18 @@ See the `examples/` directory for complete working examples:
 - **basic.js** - Simple error capture
 - **breadcrumbs.js** - Breadcrumb tracking
 - **advanced.js** - All features (tags, context, hooks)
+- **error-types-demo.js** - All error types that can be captured
+- **error-formatting-demo.js** - Error formatting with enhanced stack frames
 
 Run examples:
 ```bash
+npm run build  # Build first
+
 node examples/basic.js
 node examples/breadcrumbs.js
 node examples/advanced.js
+node examples/error-types-demo.js
+node examples/error-formatting-demo.js
 ```
 
 ## Development

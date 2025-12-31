@@ -11,7 +11,7 @@ describe('Transport', () => {
   beforeEach(() => {
     transport = new Transport({
       baseUrl: 'http://localhost:8080',
-      apiKey: 'test-api-key',
+      ingestKey: 'kep_ingest_test-ingest-key',
       timeout: 5000,
       debug: false,
     });
@@ -42,7 +42,7 @@ describe('Transport', () => {
       expect(options?.method).toBe('POST');
       expect(options?.headers).toEqual({
         'Content-Type': 'application/json',
-        'X-API-Key': 'test-api-key',
+        'X-Ingest-Key': 'kep_ingest_test-ingest-key',
       });
     });
 
@@ -80,7 +80,7 @@ describe('Transport', () => {
 
       mockFetch.mockResolvedValueOnce({
         status: 401,
-        json: async () => ({ error: 'Invalid API key' }),
+        json: async () => ({ error: 'Invalid Ingest Key' }),
       } as Response);
 
       const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
@@ -89,7 +89,7 @@ describe('Transport', () => {
 
       expect(result).toBeNull();
       expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining('Invalid API key')
+        expect.stringContaining('Invalid Ingest Key')
       );
 
       consoleSpy.mockRestore();
@@ -224,7 +224,7 @@ describe('Transport', () => {
     it('should log in debug mode', async () => {
       const debugTransport = new Transport({
         baseUrl: 'http://localhost:8080',
-        apiKey: 'test-key',
+        ingestKey: 'test-key',
         timeout: 5000,
         debug: true,
       });
@@ -245,7 +245,7 @@ describe('Transport', () => {
       await debugTransport.send(event);
 
       expect(consoleSpy).toHaveBeenCalledWith(
-        '[Keplog] Sending event:',
+        '[Keplog] Sending event (timeout: 5000ms):',
         expect.objectContaining({
           message: 'Test',
           level: 'error',

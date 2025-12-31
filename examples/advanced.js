@@ -18,7 +18,7 @@ console.log();
 
 // Initialize with advanced configuration
 const keplog = new KeplogClient({
-  apiKey: 'kep_3968962e-e50a-42ae-9cc0-21eb48c2b874',
+  ingestKey: 'kep_ingest_your-ingest-key',
   environment: 'production',
   release: 'v2.1.5',
   serverName: 'api-server-01',

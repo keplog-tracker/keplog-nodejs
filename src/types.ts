@@ -8,10 +8,11 @@ export type Level = 'critical' | 'error' | 'warning' | 'info' | 'debug';
  */
 export interface KeplogConfig {
   /**
-   * Your project's API key (required)
-   * Format: kep_xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+   * Your project's Ingest Key (required)
+   * This is the public key used for ingesting errors into your project
+   * Format: kep_ingest_xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
    */
-  apiKey: string;
+  ingestKey: string;
 
   /**
    * Base URL for the Keplog API
@@ -56,6 +57,13 @@ export interface KeplogConfig {
 
   /**
    * HTTP request timeout in milliseconds
+   * Default: 5000ms (5 seconds)
+   * Maximum recommended: 10000ms (10 seconds)
+   *
+   * This prevents slow network requests from blocking your app.
+   * If the Keplog server is unreachable, the request will timeout
+   * and fail silently without affecting your app's performance.
+   *
    * @default 5000
    */
   timeout?: number;
@@ -206,7 +214,7 @@ export interface User {
  */
 export interface TransportConfig {
   baseUrl: string;
-  apiKey: string;
+  ingestKey: string;
   timeout: number;
   debug: boolean;
 }

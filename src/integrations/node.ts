@@ -48,6 +48,12 @@ export class NodeIntegration {
    */
   private async handleUncaughtException(error: Error): Promise<void> {
     try {
+      // ⚠️ Don't capture SDK's own errors to prevent infinite loop
+      if (this.isKeplogError(error)) {
+        console.error('[Keplog] Skipping SDK internal error to prevent recursion:', error);
+        return;
+      }
+
       // Capture the error with additional context
       await this.client.captureError(error, {
         uncaught: true,
@@ -84,6 +90,12 @@ export class NodeIntegration {
       // Convert reason to Error if it's not already
       const error = reason instanceof Error ? reason : new Error(String(reason));
 
+      // ⚠️ Don't capture SDK's own errors to prevent infinite loop
+      if (this.isKeplogError(error)) {
+        console.error('[Keplog] Skipping SDK internal error to prevent recursion:', error);
+        return;
+      }
+
       // Capture the error with additional context
       await this.client.captureError(error, {
         unhandled_rejection: true,
@@ -98,5 +110,24 @@ export class NodeIntegration {
       console.error('[Keplog] Failed to capture unhandled rejection:', err);
       console.error('[Keplog] Original reason:', reason);
     }
+  }
+
+  /**
+   * Check if error is from Keplog SDK itself
+   */
+  private isKeplogError(error: Error): boolean {
+    if (!error) return false;
+
+    const errorString = error.toString();
+    const stack = error.stack || '';
+
+    // Check if error comes from Keplog code
+    return (
+      errorString.includes('@keplog/node') ||
+      errorString.includes('Keplog') ||
+      errorString.includes('[Keplog]') ||
+      stack.includes('@keplog/node') ||
+      stack.includes('/keplog/')
+    );
   }
 }
