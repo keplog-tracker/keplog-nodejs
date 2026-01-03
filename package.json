@@ -1,6 +1,6 @@
 {
   "name": "@keplog/node",
-  "version": "1.0.1",
+  "version": "1.0.4",
   "description": "Official Keplog SDK for Node.js error tracking",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -51,13 +51,16 @@
     "node": ">=14.0.0"
   },
   "devDependencies": {
+    "@types/express": "^4.17.21",
     "@types/jest": "^29.5.11",
     "@types/node": "^20.10.0",
-    "@types/express": "^4.17.21",
     "express": "^4.18.2",
     "jest": "^29.7.0",
     "ts-jest": "^29.1.1",
     "tsup": "^8.0.1",
     "typescript": "^5.3.3"
+  },
+  "dependencies": {
+    "qs": "^6.14.1"
   }
 }
